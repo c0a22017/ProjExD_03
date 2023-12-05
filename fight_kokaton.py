@@ -121,6 +121,23 @@ class Bomb:
         self.rct.move_ip(self.vx, self.vy)
         screen.blit(self.img, self.rct)
 
+class Beam:
+
+    def __init__(self,bird: Bird):
+        """画像surface
+        画像surfaceに対応したrect
+        rectに座標を設定する"""
+        self._img = pg.transform.rotozoom(pg.image.load(f"ex03/fig/beam.png"), 0 , 2.0)
+        self._rct = self._img.get_rect()
+        self._rct.centerx = bird._rct.centerx + 100
+        self._rct.centery = bird._rct.centery
+        self._vx, self._vy = 1,0
+
+    def update(self, screen: pg.Surface):
+    
+        self._rct.move_ip(self._vx, self._vy)
+        screen.blit(self._img, self._rct)
+
 
 def main():
     pg.display.set_caption("たたかえ！こうかとん")
@@ -128,6 +145,7 @@ def main():
     bg_img = pg.image.load(f"{MAIN_DIR}/fig/pg_bg.jpg")
     bird = Bird(3, (900, 400))
     bomb = Bomb((255, 0, 0), 10)
+    beam = None
 
     clock = pg.time.Clock()
     tmr = 0
@@ -135,6 +153,9 @@ def main():
         for event in pg.event.get():
             if event.type == pg.QUIT:
                 return
+            elif event.type == pg.KEYDOWN and event.key == pg.K_SPACE:
+                if not beam:  # Only allow one beam at a time
+                    beam = Beam(bird)
         
         screen.blit(bg_img, [0, 0])
         
@@ -144,9 +165,13 @@ def main():
             pg.display.update()
             time.sleep(1)
             return
+            
+       
 
         key_lst = pg.key.get_pressed()
         bird.update(key_lst, screen)
+        
+        
         bomb.update(screen)
         pg.display.update()
         tmr += 1
