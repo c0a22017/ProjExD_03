@@ -64,6 +64,7 @@ class Bird:
         )
         self.rct = self.img.get_rect()
         self.rct.center = xy
+        self.beams = []
 
     def change_img(self, num: int, screen: pg.Surface):
         """
@@ -90,19 +91,35 @@ class Bird:
             self.rct.move_ip(-sum_mv[0], -sum_mv[1])
         screen.blit(self.img, self.rct)
 
+    def fire_beam(self):
+        """Fire a new beam instance."""
+        new_beam = Beam(self.rct)
+        self.beams.append(new_beam)    
+        
+    def update_beams(self, screen: pg.Surface):
+        """Update all beam instances and remove if out of bounds."""
+        beams_to_remove = []
+        for beam in self.beams:
+            beam.update(screen)
+            if not check_bound(beam.rct):
+                beams_to_remove.append(beam)
+        for beam in beams_to_remove:
+            self.beams.remove(beam)
 
 class Bomb:
     """
     爆弾に関するクラス
     """
-    def __init__(self, color: tuple[int, int, int], rad: int):
+    def __init__(self, image_path: str, rad: int):
         """
         引数に基づき爆弾円Surfaceを生成する
         引数1 color：爆弾円の色タプル
         引数2 rad：爆弾円の半径
         """
-        self.img = pg.Surface((2*rad, 2*rad))
-        pg.draw.circle(self.img, color, (rad, rad), rad)
+        self.img = pg.transform.scale(
+            pg.image.load(image_path),
+            (2 * rad, 2 * rad)
+        )
         self.img.set_colorkey((0, 0, 0))
         self.rct = self.img.get_rect()
         self.rct.center = random.randint(0, WIDTH), random.randint(0, HEIGHT)
@@ -122,29 +139,35 @@ class Bomb:
         screen.blit(self.img, self.rct)
 
 class Beam:
-
-    def __init__(self,bird: Bird):
-        """画像surface
-        画像surfaceに対応したrect
-        rectに座標を設定する"""
-        self._img = pg.transform.rotozoom(pg.image.load(f"ex03/fig/beam.png"), 0 , 2.0)
-        self._rct = self._img.get_rect()
-        self._rct.centerx = bird._rct.centerx + 100
-        self._rct.centery = bird._rct.centery
-        self._vx, self._vy = 1,0
+    """
+    ビームに関するクラス
+    """
+    def __init__(self, bird_rect: pg.Rect):
+        """
+        イニシャライザ
+        引数 bird_rect: こうかとんのRectオブジェクト
+        """
+        self.img = pg.image.load(f"{MAIN_DIR}/fig/beam.png")
+        self.rct = self.img.get_rect()
+        self.rct.midleft = bird_rect.midright
+        self.vx, self.vy = 5, 0
 
     def update(self, screen: pg.Surface):
-    
-        self._rct.move_ip(self._vx, self._vy)
-        screen.blit(self._img, self._rct)
+        """
+        ビームを速度ベクトルself.vx, self.vyに基づき移動させる
+        画面Surfaceにblit
+        引数 screen: 画面Surface
+        """
+        self.rct.move_ip(self.vx, self.vy)
+        screen.blit(self.img, self.rct)
 
 
 def main():
     pg.display.set_caption("たたかえ！こうかとん")
-    screen = pg.display.set_mode((WIDTH, HEIGHT))    
+    screen = pg.display.set_mode((WIDTH, HEIGHT))
     bg_img = pg.image.load(f"{MAIN_DIR}/fig/pg_bg.jpg")
     bird = Bird(3, (900, 400))
-    bomb = Bomb((255, 0, 0), 10)
+    bomb = Bomb(f"{MAIN_DIR}/fig/baikin.png", 50)
     beam = None
 
     clock = pg.time.Clock()
@@ -154,24 +177,28 @@ def main():
             if event.type == pg.QUIT:
                 return
             elif event.type == pg.KEYDOWN and event.key == pg.K_SPACE:
-                if not beam:  # Only allow one beam at a time
-                    beam = Beam(bird)
-        
+                bird.fire_beam()
+                
         screen.blit(bg_img, [0, 0])
         
+        bird.update_beams(screen)
+
+        if beam and bird.rct.colliderect(beam.rct):
+            # Remove Bird and Beam instances on collision
+            bird.change_img(8, screen)
+            beam = None
+
+        if beam:
+            beam.update(screen)
+
         if bird.rct.colliderect(bomb.rct):
-            # ゲームオーバー時に，こうかとん画像を切り替え，1秒間表示させる
             bird.change_img(8, screen)
             pg.display.update()
             time.sleep(1)
             return
-            
-       
 
         key_lst = pg.key.get_pressed()
         bird.update(key_lst, screen)
-        
-        
         bomb.update(screen)
         pg.display.update()
         tmr += 1
